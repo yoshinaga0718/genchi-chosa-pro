@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="調査マップ Pro" />
-    <title>現地調査 Pro v63</title>
+    <title>現地調査 Pro v64</title>
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -114,6 +114,34 @@ body { margin:0; font-family:sans-serif; background:var(--bg); color:var(--text)
 #mapWrap { flex:1; position:relative; overflow:hidden; min-width:0; }
 #map { width:100%; height:100%; background:#cbd5e1; }
 body.placement-mode #map { cursor:crosshair; }
+
+/* ライトボックス */
+#lightbox {
+    display:none; position:fixed; inset:0; z-index:10000;
+    background:rgba(0,0,0,.93);
+    flex-direction:column; align-items:center; justify-content:center;
+    touch-action:none;
+}
+#lightbox.is-open { display:flex; }
+#lightboxImg {
+    max-width:100vw; max-height:80vh; object-fit:contain;
+    border-radius:4px; user-select:none; -webkit-user-drag:none;
+    transform-origin:center; transition:transform .15s ease;
+}
+#lightboxInfo { color:#cbd5e1; font-size:12px; margin-top:10px; text-align:center; padding:0 24px; }
+#lightboxNav  { display:flex; gap:32px; margin-top:16px; }
+#lightboxNav button {
+    background:rgba(255,255,255,.15); color:#fff; border:none;
+    border-radius:50%; width:48px; height:48px; font-size:22px;
+    cursor:pointer; touch-action:manipulation; transition:opacity .2s;
+}
+#lightboxNav button:disabled { opacity:.25; }
+#lightboxClose {
+    position:absolute; top:14px; right:16px;
+    background:rgba(255,255,255,.15); color:#fff; border:none;
+    border-radius:50%; width:40px; height:40px; font-size:20px;
+    cursor:pointer; touch-action:manipulation;
+}
 
 /* オフラインバナー */
 #offlineBanner {
@@ -315,6 +343,15 @@ if(typeof File!=='undefined'&&!File.prototype.arrayBuffer){
 </script>
 <body>
 
+<div id="lightbox" onclick="handleLightboxTap(event)">
+    <button id="lightboxClose" onclick="closeLightbox()">×</button>
+    <img id="lightboxImg" src="" alt="">
+    <div id="lightboxInfo"></div>
+    <div id="lightboxNav">
+        <button id="lightboxPrev" onclick="lightboxMove(-1)">◀</button>
+        <button id="lightboxNext" onclick="lightboxMove(1)">▶</button>
+    </div>
+</div>
 <div id="offlineBanner">📴 オフライン — キャッシュ済みデータで動作中</div>
 <div class="app-shell">
     <aside class="sidebar">
@@ -1106,6 +1143,56 @@ function deletePhoto(id) {
     renderPhotoGrid();
 }
 
+/* ===== ライトボックス ===== */
+let _lbPhotos = [], _lbIdx = 0, _lbSwipeX = null;
+
+function openLightbox(photos, idx) {
+    _lbPhotos = photos; _lbIdx = idx;
+    _renderLightbox();
+    document.getElementById('lightbox').classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    /* スワイプ検出 */
+    const lb = document.getElementById('lightbox');
+    lb.ontouchstart = e => { _lbSwipeX = e.touches[0].clientX; };
+    lb.ontouchend   = e => {
+        if (_lbSwipeX === null) return;
+        const dx = e.changedTouches[0].clientX - _lbSwipeX;
+        if (Math.abs(dx) > 50) lightboxMove(dx < 0 ? 1 : -1);
+        _lbSwipeX = null;
+    };
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('is-open');
+    document.body.style.overflow = '';
+}
+
+function handleLightboxTap(e) {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+}
+
+function lightboxMove(dir) {
+    const next = _lbIdx + dir;
+    if (next < 0 || next >= _lbPhotos.length) return;
+    _lbIdx = next; _renderLightbox();
+}
+
+function _renderLightbox() {
+    const ph = _lbPhotos[_lbIdx];
+    document.getElementById('lightboxImg').src = ph.dataUrl;
+    /* GPS表示 */
+    let gpsText = '';
+    if (ph.gps) {
+        if (ph.gps.source === 'map') gpsText = `🗺️ ${ph.gps.lat.toFixed(5)}, ${ph.gps.lng.toFixed(5)}（地図中心）`;
+        else gpsText = `📍 ${ph.gps.lat.toFixed(5)}, ${ph.gps.lng.toFixed(5)}${ph.gps.accuracy != null ? ' ±'+ph.gps.accuracy+'m' : ''}`;
+    }
+    const dt = new Date(ph.timestamp);
+    const ts = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('lightboxInfo').textContent = `${_lbIdx+1} / ${_lbPhotos.length}　${ts}${gpsText ? '　'+gpsText : ''}`;
+    document.getElementById('lightboxPrev').disabled = _lbIdx === 0;
+    document.getElementById('lightboxNext').disabled = _lbIdx === _lbPhotos.length - 1;
+}
+
 function downloadSinglePhoto(id) {
     const ph = tempPhotos.find(p => p.id === id);
     if (!ph) return;
@@ -1173,7 +1260,7 @@ function renderPhotoGrid() {
         container.innerHTML = '<div style="color:#94a3b8;font-size:12px;padding:4px 0;">写真なし</div>';
         return;
     }
-    container.innerHTML = tempPhotos.map(p => {
+    container.innerHTML = tempPhotos.map((p, i) => {
         let gpsText;
         if (!p.gps)                       gpsText = '📍 位置情報なし';
         else if (p.gps.source==='exif')   gpsText = `📍 ${p.gps.lat.toFixed(5)},${p.gps.lng.toFixed(5)}`;
@@ -1183,7 +1270,7 @@ function renderPhotoGrid() {
         const timeText = `${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`;
         return `<div style="display:inline-block;margin:3px;vertical-align:top;width:96px;">
             <div style="position:relative;aspect-ratio:4/3;overflow:hidden;border-radius:5px;border:1px solid #cbd5e1;background:#f1f5f9;">
-                <img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                <img src="${p.dataUrl}" onclick="openLightbox(tempPhotos,${i})" style="width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;">
                 <button type="button" onclick="deletePhoto('${p.id}')"
                     style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:13px;line-height:19px;text-align:center;cursor:pointer;touch-action:manipulation;padding:0;">×</button>
                 <button type="button" onclick="downloadSinglePhoto('${p.id}')"
@@ -1770,7 +1857,7 @@ async function loadReview(){
                     <div style="font-weight:bold;margin-bottom:3px;">No.${no} [${esc(a.type||'')}]${subLabel?' — '+esc(subLabel):''}　写真${pi+1}</div>
                     <div style="font-size:12px;color:#475569;margin-bottom:6px;">${esc(timeStr)}　${esc(gpsText)}</div>
                     <div style="aspect-ratio:4/3;max-width:480px;overflow:hidden;background:#f1f5f9;border-radius:4px;border:1px solid #cbd5e1;">
-                        <img src="${ph.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;">
+                        <img src="${ph.dataUrl}" onclick="openLightbox(a.photos,${pi})" style="width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;">
                     </div>
                 </div>`;
             });
