@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="36" fill="#2563eb"/>
+  <!-- Map grid lines -->
+  <line x1="24" y1="120" x2="168" y2="120" stroke="rgba(255,255,255,0.25)" stroke-width="3"/>
+  <line x1="24" y1="148" x2="168" y2="148" stroke="rgba(255,255,255,0.25)" stroke-width="3"/>
+  <line x1="72" y1="104" x2="72" y2="168" stroke="rgba(255,255,255,0.25)" stroke-width="3"/>
+  <line x1="120" y1="104" x2="120" y2="168" stroke="rgba(255,255,255,0.25)" stroke-width="3"/>
+  <!-- Pin -->
+  <circle cx="96" cy="72" r="30" fill="white"/>
+  <path d="M96 102 Q72 80 72 65 A24 24 0 0 1 120 65 Q120 80 96 102Z" fill="white"/>
+  <circle cx="96" cy="68" r="13" fill="#2563eb"/>
+</svg>

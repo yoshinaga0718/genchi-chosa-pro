@@ -1,0 +1,5 @@
+tablet_log.txt
+index_backup_*.html
+*.pyc
+__pycache__/
+.claude/
