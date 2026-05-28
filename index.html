@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="調査マップ Pro" />
-    <title>現地調査 Pro v64</title>
+    <title>現地調査 Pro v65</title>
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -1146,6 +1146,12 @@ function deletePhoto(id) {
 /* ===== ライトボックス ===== */
 let _lbPhotos = [], _lbIdx = 0, _lbSwipeX = null;
 
+/* レビュー画面の写真ギャラリー用 — annotId → photos[] を保持 */
+let _reviewPhotosByAnnotId = {};
+function openLightboxByAnnot(annotId, idx) {
+    openLightbox(_reviewPhotosByAnnotId[annotId] || [], idx);
+}
+
 function openLightbox(photos, idx) {
     _lbPhotos = photos; _lbIdx = idx;
     _renderLightbox();
@@ -1838,6 +1844,9 @@ async function loadReview(){
 
     /* 写真一覧セクション */
     const photoList = list.filter(a=>a.photos?.length>0);
+    /* レビュー画面ライトボックス用にIDで引けるよう保存 */
+    _reviewPhotosByAnnotId = {};
+    photoList.forEach(a => { _reviewPhotosByAnnotId[a.id] = a.photos; });
     let photoGalleryHtml = '';
     if (photoList.length > 0) {
         photoGalleryHtml = '<h3 style="margin-top:28px;page-break-before:always;">写真一覧</h3>';
@@ -1857,7 +1866,7 @@ async function loadReview(){
                     <div style="font-weight:bold;margin-bottom:3px;">No.${no} [${esc(a.type||'')}]${subLabel?' — '+esc(subLabel):''}　写真${pi+1}</div>
                     <div style="font-size:12px;color:#475569;margin-bottom:6px;">${esc(timeStr)}　${esc(gpsText)}</div>
                     <div style="aspect-ratio:4/3;max-width:480px;overflow:hidden;background:#f1f5f9;border-radius:4px;border:1px solid #cbd5e1;">
-                        <img src="${ph.dataUrl}" onclick="openLightbox(a.photos,${pi})" style="width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;">
+                        <img src="${ph.dataUrl}" onclick="openLightboxByAnnot('${a.id}',${pi})" style="width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;">
                     </div>
                 </div>`;
             });

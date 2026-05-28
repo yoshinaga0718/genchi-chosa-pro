@@ -1,5 +1,5 @@
 /* ===== Service Worker — 現地調査 Pro ===== */
-const CACHE     = 'survey-app-v64';
+const CACHE     = 'survey-app-v65';
 const TILE_CACHE = 'survey-tiles-v1';
 const TILE_MAX   = 2000; // 最大キャッシュタイル数
 
