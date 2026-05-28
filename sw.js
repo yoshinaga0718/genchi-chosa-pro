@@ -1,5 +1,5 @@
 /* ===== Service Worker — 現地調査 Pro ===== */
-const CACHE     = 'survey-app-v61';
+const CACHE     = 'survey-app-v64';
 const TILE_CACHE = 'survey-tiles-v1';
 const TILE_MAX   = 2000; // 最大キャッシュタイル数
 
@@ -8,7 +8,7 @@ const PRECACHE = [
     './',
     './index.html',
     './manifest.json',
-    './icon.svg',
+    './icon.png',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     'https://unpkg.com/dexie@3.2.4/dist/dexie.js',
