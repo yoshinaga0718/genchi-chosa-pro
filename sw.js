@@ -16,6 +16,7 @@ const PRECACHE = [
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
     'https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
 ];
 
 /* ===== インストール：アプリシェルを先読みキャッシュ ===== */

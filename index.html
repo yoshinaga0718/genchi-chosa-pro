@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="調査マップ Pro" />
-    <title>現地調査 Pro v62</title>
+    <title>現地調査 Pro v63</title>
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -16,6 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
 /* ===== リセット・変数 ===== */
 :root {
@@ -1105,6 +1106,66 @@ function deletePhoto(id) {
     renderPhotoGrid();
 }
 
+function downloadSinglePhoto(id) {
+    const ph = tempPhotos.find(p => p.id === id);
+    if (!ph) return;
+    const dt = new Date(ph.timestamp);
+    const fname = `photo_${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}_${String(dt.getHours()).padStart(2,'0')}${String(dt.getMinutes()).padStart(2,'0')}.jpg`;
+    const a = document.createElement('a');
+    a.href = ph.dataUrl; a.download = fname; a.click();
+}
+
+async function exportPhotosZip() {
+    if (!currentProjectId) return alert('現場を選択してください');
+    if (typeof JSZip === 'undefined') return alert('JSZipが読み込まれていません');
+    const btn = document.getElementById('exportPhotosZipBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '作成中…'; }
+    try {
+        const project = await db.projects.get(currentProjectId);
+        const list = await db.annotations.where('projectId').equals(currentProjectId).and(a => a.isDeleted === 0).toArray();
+        const noById = {}; list.forEach((a, i) => noById[a.id] = i + 1);
+
+        const zip = new JSZip();
+        const folder = zip.folder('photos');
+        const csvRows = ['No,種別,ページ,' + currentFields.map(f => f.name).join(',') + ',緯度,経度,精度,撮影時刻,ファイル名'];
+        let total = 0;
+
+        for (const a of list) {
+            if (!a.photos?.length) continue;
+            const no = String(noById[a.id]).padStart(3, '0');
+            const fields = currentFields.map(f => `"${(a.customData?.[f.name] || '').replace(/"/g,'""')}"`).join(',');
+            const firstName = (a.customData?.[currentFields[0]?.name] || '').replace(/[\\/:*?"<>|]/g, '_').slice(0, 20);
+
+            a.photos.forEach((ph, pi) => {
+                const idx = String(pi + 1).padStart(2, '0');
+                const fname = `No${no}_${a.type}${firstName ? '_' + firstName : ''}_${idx}.jpg`;
+                folder.file(fname, ph.dataUrl.split(',')[1], { base64: true });
+
+                const dt = new Date(ph.timestamp);
+                const ts = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+                const lat = ph.gps?.lat != null ? ph.gps.lat.toFixed(6) : '';
+                const lng = ph.gps?.lng != null ? ph.gps.lng.toFixed(6) : '';
+                const acc = ph.gps ? (ph.gps.accuracy != null ? `±${ph.gps.accuracy}m` : ph.gps.source === 'map' ? '地図中心' : '') : '';
+                csvRows.push(`${noById[a.id]},${a.type},${a.page || 1},${fields},${lat},${lng},${acc},${ts},${fname}`);
+                total++;
+            });
+        }
+
+        if (total === 0) { alert('写真がありません'); return; }
+        zip.file('photos.csv', '﻿' + csvRows.join('\r\n')); // BOM付きでExcel対応
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${project?.name || '調査'}_写真.zip`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+    } catch(e) {
+        console.error(e); alert('エラー: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📦 写真をZIPダウンロード'; }
+    }
+}
+
 function renderPhotoGrid() {
     const container = document.getElementById('photoGridContainer');
     if (!container) return;
@@ -1125,6 +1186,8 @@ function renderPhotoGrid() {
                 <img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;">
                 <button type="button" onclick="deletePhoto('${p.id}')"
                     style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:13px;line-height:19px;text-align:center;cursor:pointer;touch-action:manipulation;padding:0;">×</button>
+                <button type="button" onclick="downloadSinglePhoto('${p.id}')"
+                    style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:4px;width:20px;height:20px;font-size:11px;line-height:19px;text-align:center;cursor:pointer;touch-action:manipulation;padding:0;">⬇</button>
             </div>
             <div style="font-size:10px;color:#475569;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;" title="${esc(gpsText)}">${esc(gpsText)}</div>
             <div style="font-size:10px;color:#94a3b8;">${timeText}</div>
@@ -1718,6 +1781,7 @@ async function loadReview(){
         <div class="preview-actions review-live-controls">
             <button class="preview-back-btn" onclick="switchView('export')">出力画面に戻る</button>
             <button class="preview-print-btn" onclick="window.print()">この内容でPDF出力</button>
+            <button id="exportPhotosZipBtn" class="primary" onclick="exportPhotosZip()" style="background:#0f766e;padding:8px 14px;">📦 写真をZIPダウンロード</button>
             <button class="${p?.locked?'unlock-btn':'lock-btn'}" onclick="toggleProjectLock()">${p?.locked?'🔓 ロック解除':'🔒 この内容でロック'}</button>
             <label>オブジェクトサイズ
                 <select id="reviewOutputObjectScale" onchange="setOutputObjectScale(this.value)">
